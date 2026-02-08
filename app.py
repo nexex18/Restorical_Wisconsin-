@@ -459,7 +459,7 @@ def dashboard():
                 kpi_card(stats['closed_sites'], "Closed", href="/sites?status=CLOSED"),
                 kpi_card(stats['total_actions'], "Total Actions"),
                 kpi_card(stats['with_substances'], "With Substances", href="/sites?has_substances=1"),
-                kpi_card(stats['total_documents'], "Documents", href="/sites?has_documents=1"),
+                kpi_card(stats['with_documents'], "Sites with Docs", href="/sites?has_documents=1"),
                 kpi_card(stats['pfas_sites'], "PFAS Flagged", href="/sites?pfas_flag=1"),
                 cls="kpi-grid",
             ),
