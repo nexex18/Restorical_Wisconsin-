@@ -63,15 +63,83 @@ def parse_documents_from_response(result: dict, dsn: int) -> list[dict]:
     The worker fetches three AJAX endpoints:
     - WizSiteFiles: downloadable documents (PDFs etc.)
     - WizAddtionalURLsDocs: additional URL links
-    - WizActions: actions with attached documents
+    - WizActions: actions with attached documents (has full metadata)
 
     All return HTML fragments with links.
     """
     docs = []
     seen_seqs = set()
 
-    # Parse all HTML fragments
-    for html_key in ('site_files_html', 'addtl_docs_html', 'actions_html'):
+    # ---------------------------------------------------------------------------
+    # Parse WizActions (has the most metadata)
+    # Table columns: File | Document Category | Date | Action Code | Name | Comment
+    # ---------------------------------------------------------------------------
+    actions_html = result.get('actions_html', '')
+    if actions_html and len(actions_html) > 10:
+        soup = BeautifulSoup(actions_html, 'lxml')
+
+        for link in soup.select('a[href*="download-document"]'):
+            href = link.get('href', '')
+            seq_match = re.search(r'docSeqNo=(\d+)', href)
+            if not seq_match:
+                continue
+
+            doc_seq = int(seq_match.group(1))
+            if doc_seq in seen_seqs:
+                continue
+            seen_seqs.add(doc_seq)
+
+            # Build full URL
+            if href.startswith('/'):
+                doc_url = f"{BRRTS_BASE_URL}{href}"
+            elif href.startswith('http'):
+                doc_url = href
+            else:
+                doc_url = f"{BRRTS_BASE_URL}/rrbotw/{href}"
+
+            # Get metadata from table row
+            # Actions table: td[0]=File, td[1]=Doc Category, td[2]=Date, td[3]=Action Code, td[4]=Name, td[5]=Comment
+            row = link.find_parent('tr')
+            doc_category = None
+            doc_date = None
+            action_code = None
+            action_name = None
+            comment = None
+            title = None
+
+            if row:
+                cells = row.find_all('td')
+                texts = [c.get_text(strip=True) for c in cells]
+
+                if len(texts) >= 2:
+                    doc_category = texts[1] or None
+                if len(texts) >= 3:
+                    doc_date = texts[2] or None
+                if len(texts) >= 4:
+                    action_code = texts[3] or None
+                if len(texts) >= 5:
+                    action_name = texts[4] or None
+                    title = texts[4] or None  # Use name as title
+                if len(texts) >= 6:
+                    comment = texts[5] or None
+
+            docs.append({
+                'doc_seq_no': doc_seq,
+                'title': title,
+                'document_date': doc_date,
+                'document_type': None,  # Not in actions table
+                'document_url': doc_url,
+                'document_category': doc_category,
+                'action_code': action_code,
+                'action_name': action_name,
+                'comment': comment,
+            })
+
+    # ---------------------------------------------------------------------------
+    # Parse WizSiteFiles and WizAddtionalURLsDocs
+    # These have simpler structure: td[0]=icon/link, td[1]=description, td[2]=filename, td[3]=size
+    # ---------------------------------------------------------------------------
+    for html_key in ('site_files_html', 'addtl_docs_html'):
         html = result.get(html_key, '')
         if not html or len(html) < 10:
             continue
@@ -99,30 +167,30 @@ def parse_documents_from_response(result: dict, dsn: int) -> list[dict]:
                 doc_url = f"{BRRTS_BASE_URL}/rrbotw/{href}"
 
             # Walk up to find the table row for metadata
-            # WizSiteFiles table: td[0]=icon/link, td[1]=description, td[2]=filename, td[3]=size
             row = link.find_parent('tr')
             title = None
-            doc_date = None
             doc_type = None
 
             if row:
                 cells = row.find_all('td')
                 texts = [c.get_text(strip=True) for c in cells]
-                # td[0] is the icon/download link cell - skip it for metadata
                 if len(texts) >= 2:
                     title = texts[1] or None  # Description
                 if len(texts) >= 3:
                     doc_type = texts[2] or None  # Filename
-                # No date column in WizSiteFiles - leave doc_date as None
             else:
                 title = link.get_text(strip=True) or None
 
             docs.append({
                 'doc_seq_no': doc_seq,
                 'title': title,
-                'document_date': doc_date,
+                'document_date': None,
                 'document_type': doc_type,
                 'document_url': doc_url,
+                'document_category': 'Site Files' if html_key == 'site_files_html' else 'Additional Docs',
+                'action_code': None,
+                'action_name': None,
+                'comment': None,
             })
 
         # Also look for any other document-like links (non download-document)
@@ -151,21 +219,16 @@ def parse_documents_from_response(result: dict, dsn: int) -> list[dict]:
                     continue
                 seen_seqs.add(pseudo_seq)
 
-                row = link.find_parent('tr')
-                doc_date = None
-                doc_type = 'External Link'
-                if row:
-                    cells = row.find_all('td')
-                    texts = [c.get_text(strip=True) for c in cells]
-                    if len(texts) >= 2:
-                        doc_date = texts[1] or None
-
                 docs.append({
                     'doc_seq_no': pseudo_seq,
                     'title': title,
-                    'document_date': doc_date,
-                    'document_type': doc_type,
+                    'document_date': None,
+                    'document_type': 'External Link',
                     'document_url': doc_url,
+                    'document_category': 'External',
+                    'action_code': None,
+                    'action_name': None,
+                    'comment': None,
                 })
 
     return docs
@@ -344,7 +407,9 @@ async def test_single(dsn: int):
     print(f"\nDocuments found: {len(docs)}")
     for d in docs:
         print(f"  [{d['doc_seq_no']}] {d['title']}")
-        print(f"       Date: {d['document_date']}  Type: {d['document_type']}")
+        print(f"       Category: {d.get('document_category')}  Date: {d['document_date']}")
+        print(f"       Action Code: {d.get('action_code')}  Name: {d.get('action_name')}")
+        print(f"       Comment: {d.get('comment')}")
         print(f"       URL: {d['document_url']}")
 
     if not docs:

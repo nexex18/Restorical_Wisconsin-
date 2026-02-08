@@ -416,12 +416,27 @@ def ensure_documents_table():
                 document_date TEXT,
                 document_type TEXT,
                 document_url TEXT,
+                document_category TEXT,
+                action_code TEXT,
+                action_name TEXT,
+                comment TEXT,
                 scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (brrts_number) REFERENCES sites(brrts_number)
             );
             CREATE INDEX IF NOT EXISTS idx_documents_brrts ON documents(brrts_number);
             CREATE INDEX IF NOT EXISTS idx_documents_doc_seq ON documents(doc_seq_no);
         """)
+        # Add new columns to existing documents table if missing
+        for col_sql in [
+            "ALTER TABLE documents ADD COLUMN document_category TEXT",
+            "ALTER TABLE documents ADD COLUMN action_code TEXT",
+            "ALTER TABLE documents ADD COLUMN action_name TEXT",
+            "ALTER TABLE documents ADD COLUMN comment TEXT",
+        ]:
+            try:
+                conn.execute(col_sql)
+            except sqlite3.OperationalError:
+                pass  # Column already exists
         for col_sql in [
             "ALTER TABLE sites ADD COLUMN document_count INTEGER DEFAULT 0",
             "ALTER TABLE sites ADD COLUMN docs_scraped INTEGER DEFAULT 0",
@@ -446,13 +461,16 @@ def insert_documents(brrts_number: str, detail_seq_no: int, docs: list[dict]):
             conn.execute("""
                 INSERT OR IGNORE INTO documents
                     (brrts_number, detail_seq_no, doc_seq_no, title,
-                     document_date, document_type, document_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                     document_date, document_type, document_url,
+                     document_category, action_code, action_name, comment)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 brrts_number, detail_seq_no,
                 d.get('doc_seq_no'), d.get('title'),
                 d.get('document_date'), d.get('document_type'),
                 d.get('document_url'),
+                d.get('document_category'), d.get('action_code'),
+                d.get('action_name'), d.get('comment'),
             ))
         conn.execute(
             "UPDATE sites SET document_count = ? WHERE brrts_number = ?",
