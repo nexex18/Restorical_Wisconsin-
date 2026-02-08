@@ -14,6 +14,7 @@ VALID_SORT_COLUMNS = {
     'brrts_number', 'activity_name', 'activity_type', 'status',
     'county', 'address', 'start_date', 'end_date',
     'action_count', 'substance_count', 'document_count', 'municipality',
+    'latest_doc_date',
 }
 
 
@@ -227,8 +228,15 @@ def get_sites(activity_type='', status='', county='', search='',
         sort = 'start_date'
     order_dir = 'ASC' if order == 'asc' else 'DESC'
 
-    null_sort = f"s.{sort} IS NULL," if sort in ('start_date', 'end_date') else ""
-    order_clause = f"ORDER BY {null_sort} s.{sort} {order_dir}"
+    # Handle sorting - latest_doc_date is a subquery alias, others are table columns
+    if sort == 'latest_doc_date':
+        null_sort = "latest_doc_date IS NULL,"
+        order_clause = f"ORDER BY {null_sort} latest_doc_date {order_dir}"
+    elif sort in ('start_date', 'end_date'):
+        null_sort = f"s.{sort} IS NULL,"
+        order_clause = f"ORDER BY {null_sort} s.{sort} {order_dir}"
+    else:
+        order_clause = f"ORDER BY s.{sort} {order_dir}"
 
     offset = (page - 1) * per_page
     data_sql = f"""
@@ -236,7 +244,8 @@ def get_sites(activity_type='', status='', county='', search='',
                s.county, s.address, s.municipality, s.region, s.start_date, s.end_date,
                s.last_action, s.action_count, s.substance_count, s.latitude, s.longitude,
                s.project_manager, s.source_url,
-               (SELECT COUNT(*) FROM documents d WHERE d.brrts_number = s.brrts_number) as document_count
+               (SELECT COUNT(*) FROM documents d WHERE d.brrts_number = s.brrts_number) as document_count,
+               (SELECT MAX(document_date) FROM documents d WHERE d.brrts_number = s.brrts_number) as latest_doc_date
         FROM sites s
         {where}
         {order_clause}

@@ -548,7 +548,13 @@ def sites_table_content(sites, total, page, per_page, sort, order, params):
     if not sites:
         return empty_state("No sites match your filters", "Try adjusting your search or filters")
 
-    headers = Tr(
+    # Check if filtering by documents - show Latest Doc column first
+    show_latest_doc = params.get('has_documents') == '1'
+
+    header_cols = []
+    if show_latest_doc:
+        header_cols.append(sortable_header("Latest Doc", "latest_doc_date", sort, order, "/sites/table", params))
+    header_cols.extend([
         sortable_header("BRRTS #", "brrts_number", sort, order, "/sites/table", params),
         sortable_header("Activity Name", "activity_name", sort, order, "/sites/table", params),
         sortable_header("Type", "activity_type", sort, order, "/sites/table", params),
@@ -558,19 +564,26 @@ def sites_table_content(sites, total, page, per_page, sort, order, params):
         sortable_header("End", "end_date", sort, order, "/sites/table", params),
         sortable_header("Actions", "action_count", sort, order, "/sites/table", params),
         sortable_header("Docs", "document_count", sort, order, "/sites/table", params),
-    )
+    ])
+    headers = Tr(*header_cols)
 
-    rows = [Tr(
-        Td(A(s['brrts_number'], href=f"/sites/{s['brrts_number']}")),
-        Td(format_value(s['activity_name'])),
-        Td(badge(s['activity_type'], type_variant(s['activity_type']))),
-        Td(badge(s['status'], status_variant(s['status']))),
-        Td(format_value(s['county'])),
-        Td(format_date(s['start_date'])),
-        Td(format_date(s['end_date'])),
-        Td(str(s['action_count'] or 0)),
-        Td(str(s.get('document_count') or 0)),
-    ) for s in sites]
+    rows = []
+    for s in sites:
+        row_cols = []
+        if show_latest_doc:
+            row_cols.append(Td(format_date(s.get('latest_doc_date')), style="font-weight:500;"))
+        row_cols.extend([
+            Td(A(s['brrts_number'], href=f"/sites/{s['brrts_number']}")),
+            Td(format_value(s['activity_name'])),
+            Td(badge(s['activity_type'], type_variant(s['activity_type']))),
+            Td(badge(s['status'], status_variant(s['status']))),
+            Td(format_value(s['county'])),
+            Td(format_date(s['start_date'])),
+            Td(format_date(s['end_date'])),
+            Td(str(s['action_count'] or 0)),
+            Td(str(s.get('document_count') or 0)),
+        ])
+        rows.append(Tr(*row_cols))
 
     return Div(
         Table(Thead(headers), Tbody(*rows), cls="data-table"),
@@ -582,11 +595,13 @@ def sites_table_content(sites, total, page, per_page, sort, order, params):
 def sites_list(request,
                activity_type: str = '', status: str = '',
                county: str = '',
-               search: str = '', sort: str = 'start_date',
-               order: str = 'desc', page: int = 1,
+               search: str = '', sort: str = '', order: str = 'desc', page: int = 1,
                has_substances: str = '', has_documents: str = '', pfas_flag: str = ''):
     per_page = 25
     options = db.get_filter_options()
+    # Default sort: latest_doc_date when filtering by documents, otherwise start_date
+    if not sort:
+        sort = 'latest_doc_date' if has_documents == '1' else 'start_date'
     params = _get_filter_params(activity_type, status,
                                 county, search, sort, order,
                                 has_substances, has_documents, pfas_flag)
@@ -684,10 +699,12 @@ def sites_list(request,
 def sites_table_partial(request,
                         activity_type: str = '', status: str = '',
                         county: str = '',
-                        search: str = '', sort: str = 'start_date',
-                        order: str = 'desc', page: int = 1,
+                        search: str = '', sort: str = '', order: str = 'desc', page: int = 1,
                         has_substances: str = '', has_documents: str = '', pfas_flag: str = ''):
     per_page = 25
+    # Default sort: latest_doc_date when filtering by documents, otherwise start_date
+    if not sort:
+        sort = 'latest_doc_date' if has_documents == '1' else 'start_date'
     params = _get_filter_params(activity_type, status,
                                 county, search, sort, order,
                                 has_substances, has_documents, pfas_flag)
