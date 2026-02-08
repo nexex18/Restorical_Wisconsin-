@@ -536,7 +536,8 @@ def get_docs_scrape_progress() -> dict:
 def get_site_documents(brrts_number: str) -> list[dict]:
     """Get all documents for a site."""
     return query(
-        """SELECT id, doc_seq_no, title, document_date, document_type, document_url
+        """SELECT id, doc_seq_no, title, document_date, document_type, document_url,
+                  document_category, action_code, action_name, comment
            FROM documents WHERE brrts_number = ?
            ORDER BY document_date DESC, id DESC""",
         (brrts_number,)

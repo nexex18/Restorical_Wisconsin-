@@ -819,7 +819,15 @@ def site_detail(brrts_number: str):
         docs_section = Div(
             docs_header,
             Table(
-                Thead(Tr(Th("", style="width:40px;"), Th("Title"), Th("Date"), Th("Type"), Th("Link"))),
+                Thead(Tr(
+                    Th("", style="width:40px;"),
+                    Th("Category"),
+                    Th("Date"),
+                    Th("Action Code"),
+                    Th("Name"),
+                    Th("Comment"),
+                    Th("Link"),
+                )),
                 Tbody(*doc_rows),
                 cls="data-table",
             ),
@@ -923,9 +931,11 @@ def _doc_row(doc: dict, brrts_number: str, is_selected: bool):
             hx_target="closest tr",
             hx_swap="outerHTML",
         )),
-        Td(doc.get('title') or '--'),
+        Td(doc.get('document_category') or '--'),
         Td(format_date(doc.get('document_date'))),
-        Td(doc.get('document_type') or '--'),
+        Td(doc.get('action_code') or '--'),
+        Td(doc.get('action_name') or doc.get('title') or '--'),
+        Td(doc.get('comment') or '--'),
         Td(A("View ↗", href=doc['document_url'], target="_blank",
               rel="noopener noreferrer") if doc.get('document_url') else '--'),
         cls=row_cls,
@@ -938,7 +948,9 @@ def toggle_doc_selection(brrts_number: str, doc_id: int):
     now_selected = db.toggle_document_selection(doc_id, brrts_number)
 
     doc = db.query_one(
-        "SELECT id, title, document_date, document_type, document_url FROM documents WHERE id = ?",
+        """SELECT id, title, document_date, document_type, document_url,
+                  document_category, action_code, action_name, comment
+           FROM documents WHERE id = ?""",
         (doc_id,)
     )
     if not doc:
