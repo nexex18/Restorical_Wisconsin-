@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+
+# Database
+database/*.db
+database/*.db-wal
+database/*.db-shm
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.sesskey
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Data files (large)
+data/*.zip
+data/wdnr-brrts-data/

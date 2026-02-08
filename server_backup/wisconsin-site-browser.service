@@ -1,0 +1,14 @@
+[Unit]
+Description=Wisconsin DNR BRRTS Site Browser (FastHTML)
+After=network.target
+
+[Service]
+WorkingDirectory=/app/Wisconsin
+ExecStart=/app/Wisconsin/venv/bin/python /app/Wisconsin/app.py
+Restart=always
+RestartSec=5
+Environment=PATH=/app/Wisconsin/venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PORT=5011
+
+[Install]
+WantedBy=multi-user.target

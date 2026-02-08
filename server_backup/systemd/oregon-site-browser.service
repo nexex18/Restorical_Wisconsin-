@@ -1,0 +1,13 @@
+[Unit]
+Description=Oregon DEQ Site Browser (FastHTML)
+After=network.target
+
+[Service]
+WorkingDirectory=/app/Oregon/site_browser
+ExecStart=/app/Oregon/site_browser/venv/bin/python /app/Oregon/site_browser/app.py
+Restart=always
+RestartSec=5
+Environment=PATH=/app/Oregon/site_browser/venv/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

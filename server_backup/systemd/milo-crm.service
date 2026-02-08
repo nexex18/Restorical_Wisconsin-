@@ -1,0 +1,13 @@
+[Unit]
+Description=MILO CRM FastHTML Application
+After=network.target
+
+[Service]
+WorkingDirectory=/app/milo_crm
+ExecStart=/app/milo_crm/venv/bin/python /app/milo_crm/app.py
+Restart=always
+RestartSec=5
+Environment=PATH=/app/milo_crm/venv/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
